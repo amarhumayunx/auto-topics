@@ -1,0 +1,28 @@
+name: Auto Update Repo Topics
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 3 * * 1"  # every Monday 3 AM UTC
+
+jobs:
+  update-topics:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: pip install requests openai
+
+      - name: Generate & update topics
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: python scripts/generate_topics.py
