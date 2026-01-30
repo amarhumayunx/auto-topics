@@ -120,9 +120,56 @@ def update_topics(owner, repo, topics):
     r.raise_for_status()
 
 
+def generate_description(content, repo_name):
+    """Use OpenAI to generate a short GitHub repo description (max 350 chars)."""
+    prompt = f"""
+Write a single short sentence for this repository's GitHub description.
+- Max 350 characters. No line breaks. Clear and professional.
+- Repo name: {repo_name}
+- Describe what the repo does and main tech/purpose.
+
+Content:
+{content[:2500]}
+"""
+    res = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": prompt}],
+    )
+    desc = res.choices[0].message.content.strip()
+    return desc[:350] if desc else ""
+
+
+def update_description(owner, repo, description):
+    """Update repo description via GitHub API."""
+    url = f"https://api.github.com/repos/{owner}/{repo}"
+    r = requests.patch(url, headers=HEADERS, json={"description": description})
+    r.raise_for_status()
+
+
 def main():
     if not GH_TOKEN or not os.getenv("OPENAI_API_KEY"):
         print("Missing GH_TOKEN or OPENAI_API_KEY. Add them in GitHub Secrets.")
+        return
+
+    # Push mode: update only the repo that was pushed to (topics + description)
+    github_repo = os.getenv("GITHUB_REPOSITORY")
+    update_on_push = os.getenv("UPDATE_ON_PUSH", "").lower() in ("1", "true", "yes")
+    if github_repo and update_on_push:
+        owner, name = github_repo.split("/", 1)
+        print(f"Push mode: updating topics + description for {owner}/{name}")
+        content = get_repo_content(owner, name)
+        if not content.strip():
+            print("⏭ No README or config files; skipping.")
+            return
+        topics = generate_topics(content, name)
+        description = generate_description(content, name)
+        if topics:
+            update_topics(owner, name, topics)
+            print(f"✅ Topics: {topics}")
+        if description:
+            update_description(owner, name, description)
+            preview = description[:80] + "..." if len(description) > 80 else description
+            print(f"✅ Description: {preview}")
         return
 
     repos = get_repos()

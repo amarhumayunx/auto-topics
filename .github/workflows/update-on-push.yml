@@ -1,0 +1,30 @@
+# On push to main: update this repo's topics + description (AI-generated)
+name: Update Topics & Description on Push
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  update-this-repo:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: pip install requests openai
+
+      - name: Update topics & description for this repo
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          UPDATE_ON_PUSH: "1"
+        run: python scripts/generate_topics.py
